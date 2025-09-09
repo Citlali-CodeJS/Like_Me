@@ -1,62 +1,93 @@
-import axios from "axios";
 import { useEffect, useState } from "react";
 import Form from "./components/Form";
 import Post from "./components/Post";
-
-const urlBaseServer = "http://localhost:3000";
+import { getPosts, addPost, deletePost, likePost } from "./services/postService";
+import { successToast, errorToast } from "./utils/toast";
 
 function App() {
+  const [posts, setPosts] = useState([]);
   const [titulo, setTitulo] = useState("");
   const [imgSrc, setImgSRC] = useState("");
   const [descripcion, setDescripcion] = useState("");
-  const [posts, setPosts] = useState([]);
 
-  const getPosts = async () => {
-    const { data: posts } = await axios.get(urlBaseServer + "/posts");
-    setPosts([...posts]);
-  };
-
-  const agregarPost = async () => {
-    const post = { titulo, url: imgSrc, descripcion };
-    await axios.post(urlBaseServer + "/posts", post);
-    getPosts();
-  };
-
-  // este método se utilizará en el siguiente desafío
-  const like = async (id) => {
-    await axios.put(urlBaseServer + `/posts/like/${id}`);
-    getPosts();
-  };
-
-  // este método se utilizará en el siguiente desafío
-  const eliminarPost = async (id) => {
-    await axios.delete(urlBaseServer + `/posts/${id}`);
-    getPosts();
+  // Obtener posts
+  const fetchPosts = async () => {
+    try {
+      const data = await getPosts();
+      setPosts(data);
+    } catch {
+      errorToast("Error al obtener posts");
+    }
   };
 
   useEffect(() => {
-    getPosts();
+    fetchPosts();
   }, []);
 
+  // Crear post
+  const createPost = async () => {
+    if (!titulo || !imgSrc || !descripcion) return;
+    const newPost = { titulo, img: imgSrc, descripcion, likes: 0 };
+    try {
+      const addedPost = await addPost(newPost);
+      setPosts([addedPost, ...posts]);
+      successToast("Post agregado!");
+      // Limpiar formulario
+      setTitulo("");
+      setImgSRC("");
+      setDescripcion("");
+    } catch {
+      errorToast("Error al agregar post");
+    }
+  };
+
+  // Dar like
+  const likePostById = async (id) => {
+    try {
+      await likePost(id);
+      setPosts(
+        posts.map((p) => (p.id === id ? { ...p, likes: p.likes + 1 } : p))
+      );
+    } catch {
+      errorToast("Error al dar like");
+    }
+  };
+
+  // Eliminar post
+  const deletePostById = async (id) => {
+    try {
+      await deletePost(id);
+      setPosts(posts.filter((p) => p.id !== id));
+      successToast("Post eliminado!");
+    } catch {
+      errorToast("Error al eliminar post");
+    }
+  };
+
   return (
-    <div className="App">
-      <h2 className="py-5 text-center">&#128248; Like Me &#128248;</h2>
+    <div className="App container">
+      <h2 className="py-5 text-center">📸 Like Me 📸</h2>
+
       <div className="row m-auto px-5">
         <div className="col-12 col-sm-4">
           <Form
+            titulo={titulo}
+            imgSrc={imgSrc}
+            descripcion={descripcion}
             setTitulo={setTitulo}
             setImgSRC={setImgSRC}
             setDescripcion={setDescripcion}
-            agregarPost={agregarPost}
+            agregarPost={createPost}
           />
         </div>
+
         <div className="col-12 col-sm-8 px-5 row posts align-items-start">
-          {posts.map((post, i) => (
+          {posts.map((post) => (
             <Post
-              key={i}
+              key={post.id}
               post={post}
-              like={like}
-              eliminarPost={eliminarPost}
+              like={() => likePostById(post.id)}
+              eliminarPost={() => deletePostById(post.id)}
             />
           ))}
         </div>
